@@ -1,0 +1,38 @@
+name: IMOU Camera Timelapse
+
+on:
+  schedule:
+    # Spustí se každý den v 15:00 UTC (16:00 CET, 15:00 CEST)
+    # Pro 15:00 CET (zimní čas) použijte '0 14 * * *'
+    # Pro 15:00 CEST (letní čas) použijte '0 13 * * *'
+    - cron: '0 14 * * *'
+  
+  # Umožňuje manuální spuštění pro testování
+  workflow_dispatch:
+
+jobs:
+  capture-snapshot:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        pip install requests google-auth google-auth-oauthlib google-api-python-client
+    
+    - name: Run timelapse script
+      env:
+        IMOU_APP_ID: ${{ secrets.IMOU_APP_ID }}
+        IMOU_APP_SECRET: ${{ secrets.IMOU_APP_SECRET }}
+        IMOU_DEVICE_ID: ${{ secrets.IMOU_DEVICE_ID }}
+        GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+        GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+      run: |
+        python timelapse.py
