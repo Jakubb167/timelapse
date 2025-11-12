@@ -1,0 +1,2231 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prohlížeč snímků z kamer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #111827;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            background: #1f2937;
+            border-bottom: 1px solid #374151;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-right: 16px;
+        }
+
+        .tabs {
+            display: flex;
+        }
+
+        .tab {
+            padding: 12px 24px;
+            background: #1f2937;
+            color: #9ca3af;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            background: #374151;
+        }
+
+        .tab.active {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .external-links {
+            display: flex;
+            gap: 12px;
+        }
+
+        .external-link {
+            padding: 8px 16px;
+            background: #374151;
+            color: #fff;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .external-link:hover {
+            background: #4b5563;
+        }
+
+        .filters {
+            padding: 12px 24px;
+            background: #1f2937;
+            border-top: 1px solid #374151;
+            display: flex;
+            gap: 16px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .filters label {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+
+        .filters input[type="date"] {
+            background: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 4px;
+            padding: 6px 12px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .filters input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .filters select {
+            background: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 4px;
+            padding: 6px 12px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .filters button {
+            background: #374151;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .filters button:hover {
+            background: #4b5563;
+        }
+
+        .main-content {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 256px;
+            background: #1f2937;
+            border-right: 1px solid #374151;
+            overflow-y: auto;
+        }
+
+        .sidebar-content {
+            padding: 16px;
+        }
+
+        .sidebar h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: #d1d5db;
+            margin-bottom: 12px;
+        }
+
+        .image-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .image-item, .date-item {
+            background: #374151;
+            border: none;
+            border-radius: 4px;
+            padding: 8px 12px;
+            color: #d1d5db;
+            cursor: pointer;
+            font-size: 14px;
+            text-align: left;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .image-item:hover, .date-item:hover {
+            background: #4b5563;
+        }
+
+        .image-item.active, .date-item.active {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .viewer {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .image-container {
+            flex: 1;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: auto;
+        }
+
+        .image-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            transition: all 0.3s;
+        }
+
+        .image-display img {
+            display: block;
+            transition: opacity 0.3s;
+        }
+
+        .image-display .placeholder {
+            background: #1f2937;
+            padding: 32px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .image-display h2 {
+            font-size: 24px;
+            margin-bottom: 16px;
+        }
+
+        .image-display p {
+            color: #9ca3af;
+            font-size: 14px;
+        }
+
+        .loading {
+            color: #9ca3af;
+        }
+
+        .error {
+            color: #ef4444;
+        }
+
+        .nav-button {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            background: rgba(0, 0, 0, 0.5);
+            border: none;
+            border-radius: 50%;
+            width: 48px;
+            height: 48px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            z-index: 10;
+        }
+
+        .nav-button:hover {
+            background: rgba(0, 0, 0, 0.75);
+        }
+
+        .nav-button.prev {
+            left: 16px;
+        }
+
+        .nav-button.next {
+            right: 16px;
+        }
+
+        .controls {
+            background: #1f2937;
+            border-top: 1px solid #374151;
+            padding: 8px 16px;
+        }
+
+        .controls-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .play-button {
+            background: #2563eb;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .play-button:hover {
+            background: #1d4ed8;
+        }
+
+        .play-button:disabled {
+            background: #4b5563;
+            cursor: not-allowed;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .speed-control label {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+
+        .speed-control select {
+            background: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 4px;
+            padding: 4px 8px;
+            color: #fff;
+            font-size: 13px;
+        }
+
+        .counter {
+            font-size: 13px;
+            color: #9ca3af;
+        }
+
+        .timeline-container {
+            background: #1f2937;
+            border-top: 1px solid #374151;
+            padding: 8px 16px;
+        }
+
+        .timeline-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .timeline-zoom-controls {
+            display: flex;
+            gap: 4px;
+            align-items: center;
+        }
+
+        .timeline-zoom-btn {
+            background: #374151;
+            border: none;
+            border-radius: 4px;
+            width: 28px;
+            height: 28px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .timeline-zoom-btn:hover {
+            background: #4b5563;
+        }
+
+        .timeline-zoom-level {
+            font-size: 12px;
+            color: #9ca3af;
+            min-width: 40px;
+            text-align: center;
+        }
+
+        .timeline-scroll-control {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .timeline-scroll-bar {
+            flex: 1;
+            height: 6px;
+            background: #374151;
+            border-radius: 3px;
+            position: relative;
+            cursor: pointer;
+        }
+
+        .timeline-scroll-thumb {
+            position: absolute;
+            height: 100%;
+            background: #3b82f6;
+            border-radius: 3px;
+            cursor: grab;
+            transition: background 0.2s;
+        }
+
+        .timeline-scroll-thumb:hover {
+            background: #2563eb;
+        }
+
+        .timeline-scroll-thumb:active {
+            cursor: grabbing;
+        }
+
+        .timeline-wrapper {
+            position: relative;
+            height: 50px;
+        }
+
+        .timeline {
+            position: relative;
+            height: 8px;
+            background: #374151;
+            border-radius: 4px;
+            cursor: crosshair;
+            overflow: visible;
+            margin: 22px 0 8px 0;
+        }
+
+        .timeline-year-marker {
+            position: absolute;
+            top: -18px;
+            transform: translateX(-50%);
+            font-size: 10px;
+            color: #9ca3af;
+            font-weight: 600;
+        }
+
+        .timeline-year-line {
+            position: absolute;
+            top: -8px;
+            width: 2px;
+            height: 24px;
+            background: #6b7280;
+            transform: translateX(-50%);
+        }
+
+        .timeline-month-marker {
+            position: absolute;
+            top: -8px;
+            width: 1px;
+            height: 16px;
+            background: #4b5563;
+            transform: translateX(-50%);
+        }
+
+        .timeline-marker {
+            position: absolute;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 3px;
+            height: 20px;
+            background: #9ca3af;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .timeline-marker:hover {
+            background: #d1d5db;
+            height: 24px;
+        }
+
+        .timeline-marker.active {
+            background: #3b82f6;
+            height: 28px;
+            width: 4px;
+        }
+
+        .timeline-labels {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 4px;
+            font-size: 11px;
+            color: #9ca3af;
+        }
+
+        .image-info {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 12px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 5;
+        }
+
+        .image-info div {
+            margin-bottom: 4px;
+        }
+
+        .image-info div:last-child {
+            margin-bottom: 0;
+        }
+
+        .meteo-widget {
+            position: absolute;
+            bottom: 16px;
+            right: 16px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 16px;
+            border-radius: 8px;
+            font-size: 13px;
+            z-index: 5;
+            min-width: 220px;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+
+        .meteo-widget h4 {
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: #3b82f6;
+            border-bottom: 1px solid rgba(59, 130, 246, 0.3);
+            padding-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .meteo-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            align-items: center;
+        }
+
+        .meteo-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .meteo-label {
+            color: #9ca3af;
+            font-size: 12px;
+        }
+
+        .meteo-value {
+            color: #fff;
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .meteo-temp-range {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        .meteo-temp-range span {
+            color: #9ca3af;
+        }
+
+        .stats-container {
+            padding: 24px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 32px;
+        }
+
+        .stat-card {
+            background: #1f2937;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #374151;
+        }
+
+        .stat-card h3 {
+            font-size: 14px;
+            margin-bottom: 8px;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        .stat-card .stat-value {
+            font-size: 32px;
+            font-weight: 600;
+            color: #3b82f6;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+        }
+
+        .chart-card {
+            background: #1f2937;
+            padding: 24px;
+            border-radius: 8px;
+            border: 1px solid #374151;
+        }
+
+        .chart-card h3 {
+            font-size: 16px;
+            margin-bottom: 20px;
+            color: #d1d5db;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 350px;
+        }
+
+        .heatmap-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .heatmap-controls label {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+
+        .heatmap-controls select {
+            background: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 4px;
+            padding: 6px 12px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .heatmap-table-container {
+            overflow-x: auto;
+            background: #1f2937;
+            border-radius: 8px;
+            padding: 16px;
+        }
+
+        .heatmap-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 2px;
+        }
+
+        .heatmap-table th {
+            background: #374151;
+            color: #9ca3af;
+            padding: 8px;
+            font-size: 11px;
+            font-weight: 500;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        .heatmap-table td {
+            padding: 0;
+            text-align: center;
+            width: 30px;
+            height: 30px;
+        }
+
+        .heatmap-cell {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 500;
+            transition: all 0.2s;
+            cursor: pointer;
+        }
+
+        .heatmap-cell:hover {
+            transform: scale(1.1);
+            z-index: 10;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.5);
+        }
+
+        .heatmap-cell-empty {
+            background: #374151;
+            color: transparent;
+        }
+
+        .heatmap-legend {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 16px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+
+        .heatmap-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .heatmap-legend-box {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .multiview-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 2px;
+            background: #374151;
+            padding: 2px;
+        }
+
+        .multiview-panel {
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .multiview-panel img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .multiview-meteo {
+            padding: 20px;
+            color: #fff;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+        }
+
+        .multiview-meteo h3 {
+            font-size: 14px;
+            margin-bottom: 16px;
+            text-align: center;
+            color: #9ca3af;
+            font-weight: 500;
+        }
+
+        .multiview-meteo-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .multiview-meteo-item {
+            background: rgba(55, 65, 81, 0.5);
+            padding: 8px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(75, 85, 99, 0.5);
+        }
+
+        .multiview-meteo-label {
+            font-size: 10px;
+            color: #9ca3af;
+            margin-bottom: 4px;
+            font-weight: 400;
+        }
+
+        .multiview-meteo-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .multiview-meteo-range {
+            font-size: 11px;
+            color: #d1d5db;
+            margin-top: 2px;
+        }
+
+        .multiview-label {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            z-index: 5;
+        }
+
+        .multiview-placeholder {
+            text-align: center;
+            color: #9ca3af;
+        }
+
+        .multiview-time {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-top">
+                <div class="tabs">
+                    <button class="tab active" data-camera="0">Kamera 1</button>
+                    <button class="tab" data-camera="1">Kamera 2</button>
+                    <button class="tab" data-camera="2">Kamera 3</button>
+                    <button class="tab" data-view="multiview">Multiview</button>
+                    <button class="tab" data-view="stats">Statistiky</button>
+                </div>
+                
+                <div class="external-links">
+                    <a href="https://jakubb167.github.io/meteostanice/" target="_blank" class="external-link">📊 Meteostanice</a>
+                    <a href="http://jakubb167.github.io/mereni_energie/" target="_blank" class="external-link">⚡ Energie</a>
+                </div>
+            </div>
+            
+            <div class="filters">
+                <label>Období:</label>
+                <input type="date" id="dateFrom">
+                <span style="color: #9ca3af;">—</span>
+                <input type="date" id="dateTo">
+                <button id="resetBtn">Reset</button>
+                <button id="refreshBtn">Obnovit</button>
+                
+                <div style="margin-left: auto; display: flex; gap: 16px; align-items: center;">
+                    <input type="checkbox" id="meteoCheckbox">
+                    <label for="meteoCheckbox" style="cursor: pointer;">Meteo</label>
+                    
+                    <label>Velikost:</label>
+                    <select id="zoomSelect">
+                        <option value="25">25%</option>
+                        <option value="50">50%</option>
+                        <option value="75">75%</option>
+                        <option value="100" selected>100%</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="sidebar-content">
+                    <h3 id="sidebarTitle">Snímky (<span id="imageCount">0</span>)</h3>
+                    <div class="image-list" id="imageList"></div>
+                </div>
+            </div>
+
+            <div class="viewer" id="viewerContainer">
+                <div class="image-container">
+                    <div class="image-display" id="imageDisplay">
+                        <div class="loading">Načítání...</div>
+                    </div>
+                    <button class="nav-button prev" id="prevBtn">‹</button>
+                    <button class="nav-button next" id="nextBtn">›</button>
+                </div>
+
+                <div class="controls">
+                    <div class="controls-inner">
+                        <button class="play-button" id="playBtn">▶</button>
+                        
+                        <div class="speed-control">
+                            <label>Rychlost:</label>
+                            <select id="speedSelect">
+                                <option value="200">Rychlá (0.2s)</option>
+                                <option value="500" selected>Normální (0.5s)</option>
+                                <option value="1000">Pomalá (1s)</option>
+                                <option value="2000">Velmi pomalá (2s)</option>
+                            </select>
+                        </div>
+
+                        <div class="counter" id="counter">0 / 0</div>
+                    </div>
+                </div>
+
+                <div class="timeline-container">
+                    <div class="timeline-controls">
+                        <div class="timeline-zoom-controls">
+                            <button class="timeline-zoom-btn" id="zoomOutBtn" title="Oddálit">−</button>
+                            <div class="timeline-zoom-level" id="zoomLevel">1x</div>
+                            <button class="timeline-zoom-btn" id="zoomInBtn" title="Přiblížit">+</button>
+                        </div>
+                        <div class="timeline-scroll-control" id="scrollControl" style="display: none;">
+                            <div class="timeline-scroll-bar" id="scrollBar">
+                                <div class="timeline-scroll-thumb" id="scrollThumb"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="timeline-wrapper">
+                        <div class="timeline" id="timeline"></div>
+                    </div>
+                    <div class="timeline-labels" id="timelineLabels"></div>
+                </div>
+            </div>
+
+            <div class="multiview-container" id="multiviewContainer" style="display: none;">
+                <div class="multiview-panel" id="multi0">
+                    <div class="multiview-label">Kamera 1</div>
+                    <div class="multiview-placeholder">Načítání...</div>
+                </div>
+                <div class="multiview-panel" id="multi1">
+                    <div class="multiview-label">Kamera 2</div>
+                    <div class="multiview-placeholder">Načítání...</div>
+                </div>
+                <div class="multiview-panel" id="multi2">
+                    <div class="multiview-label">Kamera 3</div>
+                    <div class="multiview-placeholder">Načítání...</div>
+                </div>
+                <div class="multiview-panel" id="multi3">
+                    <div class="multiview-label">Meteo</div>
+                    <div class="multiview-placeholder">Načítání...</div>
+                </div>
+            </div>
+
+            <div class="stats-container" id="statsContainer" style="display: none;">
+                <h2 style="font-size: 24px; margin-bottom: 24px;">Statistiky snímků</h2>
+                
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>Celkový počet snímků</h3>
+                        <div class="stat-value" id="totalCount">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Snímky ve vybraném období</h3>
+                        <div class="stat-value" id="filteredCount">0</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>První snímek</h3>
+                        <div class="stat-value" id="firstImage" style="font-size: 18px;">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Poslední snímek</h3>
+                        <div class="stat-value" id="lastImage" style="font-size: 18px;">-</div>
+                    </div>
+                </div>
+
+                <div class="charts-container">
+                    <div class="chart-card">
+                        <h3>Počet snímků podle měsíců</h3>
+                        <div class="chart-container">
+                            <canvas id="monthlyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3>Aktivita podle dne v týdnu</h3>
+                        <div class="chart-container">
+                            <canvas id="weekdayChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3>Porovnání kamer</h3>
+                        <div class="chart-container">
+                            <canvas id="cameraChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3>Aktivita podle hodin</h3>
+                        <div class="chart-container">
+                            <canvas id="hourlyChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3>Týdenní aktivita podle kamer</h3>
+                        <div class="chart-container">
+                            <canvas id="cameraWeekdayChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <h3>Trend počtu snímků v čase</h3>
+                        <div class="chart-container">
+                            <canvas id="trendChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-card">
+                        <div class="heatmap-controls">
+                            <label>Rok:</label>
+                            <select id="heatmapYearSelect"></select>
+                        </div>
+                        <h3>Heatmapa snímků podle dnů</h3>
+                        <div class="heatmap-table-container">
+                            <table class="heatmap-table" id="heatmapTable"></table>
+                            <div class="heatmap-legend">
+                                <span>Počet snímků:</span>
+                                <div class="heatmap-legend-item">
+                                    <div class="heatmap-legend-box" style="background: rgba(59, 130, 246, 0.3);"></div>
+                                    <span>1-10</span>
+                                </div>
+                                <div class="heatmap-legend-item">
+                                    <div class="heatmap-legend-box" style="background: rgba(59, 130, 246, 0.6);"></div>
+                                    <span>11-30</span>
+                                </div>
+                                <div class="heatmap-legend-item">
+                                    <div class="heatmap-legend-box" style="background: rgba(59, 130, 246, 1);"></div>
+                                    <span>31+</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_KEY = 'AIzaSyBuHux2ZkZsHU1_m7ewFawi0G3LxfVZ0C4';
+        
+        const cameras = [
+            { name: 'Kamera 1', folderId: '1NsKcbS7KcsZg_o549Zb2D5ku2sx7YLU9' },
+            { name: 'Kamera 2', folderId: '1Jon4XzwBcqQL0hUMJEiCE7iFQOLjU6OV' },
+            { name: 'Kamera 3', folderId: '1QZlJymUb6FrN45z0riXwPsqtv0UAXmsv' }
+        ];
+
+        let activeCamera = 0;
+        let allImages = [];
+        let filteredImages = [];
+        let selectedImageIndex = null;
+        let selectedDate = null;
+        let isPlaying = false;
+        let playInterval = null;
+        let speed = 500;
+        let imageZoom = 100;
+        let timelineZoom = 1;
+        let timelineScroll = 0;
+        let allCameraData = {};
+        let monthlyChart, cameraChart, weekdayChart, hourlyChart, cameraWeekdayChart, trendChart;
+        let imageCache = {};
+        let currentView = 'camera';
+        let meteoData = null;
+        let showMeteo = false;
+        let imageZoomLevel = 100;
+        let isLoadingAll = false;
+
+        async function loadMeteoData() {
+            try {
+                const response = await fetch('https://api.thingspeak.com/channels/3073864/feeds.json?results=8000');
+                const data = await response.json();
+                meteoData = data.feeds;
+                console.log('Načteno meteo záznamů:', meteoData.length);
+            } catch (error) {
+                console.error('Chyba při načítání meteo dat:', error);
+            }
+        }
+
+        function getMeteoForDateTime(dateStr, timeStr) {
+            if (!meteoData || !dateStr || !timeStr) return null;
+            
+            const date = dateStr.match(/(\d{2})\.(\d{2})\.(\d{4})/);
+            if (!date) return null;
+            
+            const searchDate = `${date[3]}-${date[2]}-${date[1]}`;
+            const time = timeStr.split(':');
+            const searchHour = parseInt(time[0]);
+            
+            const dayData = meteoData.filter(entry => entry.created_at.startsWith(searchDate));
+            
+            if (dayData.length === 0) return null;
+            
+            let closestEntry = null;
+            let minDiff = Infinity;
+            
+            dayData.forEach(entry => {
+                const entryTime = new Date(entry.created_at);
+                const entryHour = entryTime.getHours();
+                const diff = Math.abs(entryHour - searchHour);
+                
+                if (diff < minDiff) {
+                    minDiff = diff;
+                    closestEntry = entry;
+                }
+            });
+            
+            const temps = dayData.map(d => parseFloat(d.field1)).filter(t => !isNaN(t));
+            
+            if (!closestEntry) return null;
+            
+            return {
+                temp: parseFloat(closestEntry.field1).toFixed(1),
+                tempMin: temps.length > 0 ? Math.min(...temps).toFixed(1) : 'N/A',
+                tempMax: temps.length > 0 ? Math.max(...temps).toFixed(1) : 'N/A',
+                humidity: parseFloat(closestEntry.field2).toFixed(0),
+                pressure: parseFloat(closestEntry.field3).toFixed(0),
+                time: new Date(closestEntry.created_at).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })
+            };
+        }
+
+        function preloadImages(images, count = 5) {
+            if (!images || images.length === 0) return;
+            
+            const startIdx = selectedImageIndex || 0;
+            const toPreload = [];
+            
+            for (let i = 0; i < count && startIdx + i < images.length; i++) {
+                toPreload.push(images[startIdx + i]);
+            }
+            
+            toPreload.forEach(img => {
+                if (!imageCache[img.id]) {
+                    const image = new Image();
+                    image.src = img.url;
+                    imageCache[img.id] = image;
+                }
+            });
+        }
+
+        async function preloadAllImages(images) {
+            if (!images || images.length === 0 || isLoadingAll) return;
+            
+            isLoadingAll = true;
+            console.log('Zahajuji načítání všech obrázků:', images.length);
+            
+            const batchSize = 10;
+            for (let i = 0; i < images.length; i += batchSize) {
+                const batch = images.slice(i, i + batchSize);
+                
+                await Promise.all(batch.map(img => {
+                    return new Promise((resolve) => {
+                        if (imageCache[img.id]) {
+                            resolve();
+                            return;
+                        }
+                        
+                        const image = new Image();
+                        image.onload = () => {
+                            imageCache[img.id] = image;
+                            resolve();
+                        };
+                        image.onerror = () => resolve();
+                        image.src = img.url;
+                    });
+                }));
+                
+                console.log(`Načteno ${Math.min(i + batchSize, images.length)} / ${images.length} obrázků`);
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            
+            isLoadingAll = false;
+            console.log('Všechny obrázky načteny');
+        }
+
+        async function loadImagesFromDrive() {
+            document.getElementById('imageDisplay').innerHTML = '<div class="loading">Načítání snímků z Google Drive...</div>';
+            
+            try {
+                const folderId = cameras[activeCamera].folderId;
+                const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${API_KEY}&fields=files(id,name,mimeType)&pageSize=1000`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.error) {
+                    throw new Error(`API chyba: ${data.error.message}`);
+                }
+                
+                if (!data.files || data.files.length === 0) {
+                    throw new Error('Ve složce nebyly nalezeny žádné soubory.');
+                }
+                
+                const processedImages = data.files
+                    .filter(file => file.name.match(/^IMG_\d{8}-\d{6}\.jpg$/i))
+                    .map(file => {
+                        const match = file.name.match(/IMG_(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/i);
+                        if (!match) return null;
+                        return {
+                            id: file.id,
+                            filename: file.name,
+                            date: match[1] + match[2] + match[3],
+                            month: match[1] + match[2],
+                            year: match[1],
+                            time: match[4] + ':' + match[5] + ':' + match[6],
+                            url: `https://lh3.googleusercontent.com/d/${file.id}=w2000`,
+                            thumbnailUrl: `https://drive.google.com/thumbnail?id=${file.id}&sz=w2000`,
+                            displayDate: `${match[3]}.${match[2]}.${match[1]}`,
+                            fullDateTime: `${match[3]}.${match[2]}.${match[1]} ${match[4]}:${match[5]}:${match[6]}`,
+                            weekday: new Date(match[1], match[2] - 1, match[3]).getDay()
+                        };
+                    })
+                    .filter(img => img !== null)
+                    .sort((a, b) => (b.date + b.time.replace(/:/g, '')).localeCompare(a.date + a.time.replace(/:/g, '')));
+                
+                allImages = processedImages;
+                allCameraData[activeCamera] = [...processedImages];
+                
+                applyFilters();
+                renderImageList();
+                renderTimeline();
+                
+                if (filteredImages.length > 0) {
+                    selectImage(0);
+                    preloadAllImages(filteredImages);
+                } else {
+                    document.getElementById('imageDisplay').innerHTML = '<div class="placeholder"><p>Žádné snímky v tomto období</p></div>';
+                }
+            } catch (error) {
+                console.error('Chyba při načítání:', error);
+                document.getElementById('imageDisplay').innerHTML = `
+                    <div class="placeholder">
+                        <p class="error">Chyba při načítání snímků</p>
+                        <p style="margin-top: 12px;">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        function applyFilters() {
+            const dateFrom = document.getElementById('dateFrom').value.replace(/-/g, '');
+            const dateTo = document.getElementById('dateTo').value.replace(/-/g, '');
+            
+            filteredImages = allImages.filter(img => {
+                if (!dateFrom && !dateTo) return true;
+                const imgDate = parseInt(img.date);
+                const from = dateFrom ? parseInt(dateFrom) : 0;
+                const to = dateTo ? parseInt(dateTo) : 99999999;
+                return imgDate >= from && imgDate <= to;
+            });
+            
+            document.getElementById('imageCount').textContent = filteredImages.length;
+        }
+
+        function renderImageList() {
+            const listEl = document.getElementById('imageList');
+            listEl.innerHTML = '';
+            
+            filteredImages.forEach((img, idx) => {
+                const btn = document.createElement('button');
+                btn.className = 'image-item';
+                btn.textContent = img.fullDateTime;
+                btn.onclick = () => selectImage(idx);
+                listEl.appendChild(btn);
+            });
+        }
+
+        function renderTimeline() {
+            const timelineEl = document.getElementById('timeline');
+            const labelsEl = document.getElementById('timelineLabels');
+            const zoomLevelEl = document.getElementById('zoomLevel');
+            const scrollControl = document.getElementById('scrollControl');
+            
+            timelineEl.innerHTML = '';
+            labelsEl.innerHTML = '';
+            
+            if (filteredImages.length === 0) return;
+            
+            if (timelineZoom > 1) {
+                scrollControl.style.display = 'flex';
+                updateScrollThumb();
+            } else {
+                scrollControl.style.display = 'none';
+            }
+            
+            zoomLevelEl.textContent = `${timelineZoom.toFixed(1)}x`;
+            
+            const firstDate = new Date(filteredImages[filteredImages.length - 1].date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'));
+            const lastDate = new Date(filteredImages[0].date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'));
+            
+            const totalRange = lastDate - firstDate;
+            const visibleRange = totalRange / timelineZoom;
+            const startOffset = timelineScroll * (totalRange - visibleRange);
+            const visibleStart = new Date(firstDate.getTime() + startOffset);
+            const visibleEnd = new Date(visibleStart.getTime() + visibleRange);
+            
+            const visibleImages = filteredImages.filter(img => {
+                const imgDate = new Date(img.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'));
+                return imgDate >= visibleStart && imgDate <= visibleEnd;
+            });
+            
+            if (visibleImages.length === 0) {
+                labelsEl.innerHTML = `<span>Žádné snímky v tomto rozsahu</span>`;
+                return;
+            }
+            
+            const years = new Set();
+            visibleImages.forEach(img => {
+                const year = img.date.substring(0, 4);
+                years.add(year);
+            });
+            
+            years.forEach(year => {
+                const yearStart = new Date(`${year}-01-01`);
+                if (yearStart >= visibleStart && yearStart <= visibleEnd) {
+                    const position = ((yearStart - visibleStart) / (visibleEnd - visibleStart)) * 100;
+                    
+                    const yearLine = document.createElement('div');
+                    yearLine.className = 'timeline-year-line';
+                    yearLine.style.left = position + '%';
+                    timelineEl.appendChild(yearLine);
+                    
+                    const yearLabel = document.createElement('div');
+                    yearLabel.className = 'timeline-year-marker';
+                    yearLabel.textContent = year;
+                    yearLabel.style.left = position + '%';
+                    timelineEl.appendChild(yearLabel);
+                }
+            });
+            
+            const visibleDays = (visibleEnd - visibleStart) / (1000 * 60 * 60 * 24);
+            if (visibleDays < 365) {
+                const months = new Set();
+                visibleImages.forEach(img => {
+                    const month = img.date.substring(0, 6);
+                    months.add(month);
+                });
+                
+                months.forEach(month => {
+                    const year = month.substring(0, 4);
+                    const mon = month.substring(4, 6);
+                    const monthStart = new Date(`${year}-${mon}-01`);
+                    if (monthStart >= visibleStart && monthStart <= visibleEnd) {
+                        const position = ((monthStart - visibleStart) / (visibleEnd - visibleStart)) * 100;
+                        
+                        const monthLine = document.createElement('div');
+                        monthLine.className = 'timeline-month-marker';
+                        monthLine.style.left = position + '%';
+                        timelineEl.appendChild(monthLine);
+                    }
+                });
+            }
+            
+            const spacing = Math.max(1, Math.floor(visibleImages.length / 150));
+            const imagesToShow = visibleImages.filter((_, idx) => idx % spacing === 0);
+            
+            imagesToShow.forEach((img) => {
+                const realIdx = filteredImages.indexOf(img);
+                const imgDate = new Date(img.date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3'));
+                const position = ((imgDate - visibleStart) / (visibleEnd - visibleStart)) * 100;
+                
+                if (position >= 0 && position <= 100) {
+                    const marker = document.createElement('div');
+                    marker.className = 'timeline-marker';
+                    marker.style.left = position + '%';
+                    marker.title = img.fullDateTime;
+                    marker.onclick = () => selectImage(realIdx);
+                    if (selectedImageIndex === realIdx) {
+                        marker.classList.add('active');
+                    }
+                    timelineEl.appendChild(marker);
+                }
+            });
+            
+            labelsEl.innerHTML = `
+                <span>${visibleImages[visibleImages.length - 1].fullDateTime}</span>
+                <span>${visibleImages[0].fullDateTime}</span>
+            `;
+        }
+
+        function updateScrollThumb() {
+            const scrollThumb = document.getElementById('scrollThumb');
+            const thumbWidth = (1 / timelineZoom) * 100;
+            const thumbLeft = timelineScroll * (100 - thumbWidth);
+            
+            scrollThumb.style.width = thumbWidth + '%';
+            scrollThumb.style.left = thumbLeft + '%';
+        }
+
+        function selectImage(index) {
+            selectedImageIndex = index;
+            
+            document.querySelectorAll('.image-item').forEach((el, idx) => {
+                el.classList.toggle('active', idx === index);
+            });
+            
+            const img = filteredImages[index];
+            
+            const cachedImg = imageCache[img.id];
+            const imgSrc = cachedImg ? cachedImg.src : img.url;
+            
+            let meteoWidget = '';
+            if (showMeteo) {
+                const meteo = getMeteoForDateTime(img.displayDate, img.time);
+                if (meteo) {
+                    meteoWidget = `
+                        <div class="meteo-widget">
+                            <h4>🌡️ Meteo ${img.displayDate}</h4>
+                            <div class="meteo-row">
+                                <span class="meteo-label">Aktuální teplota</span>
+                                <span class="meteo-value">${meteo.temp}°C</span>
+                            </div>
+                            <div class="meteo-row">
+                                <span class="meteo-label">Rozsah</span>
+                                <span class="meteo-temp-range">
+                                    <span>${meteo.tempMin}°C</span> — <span>${meteo.tempMax}°C</span>
+                                </span>
+                            </div>
+                            <div class="meteo-row">
+                                <span class="meteo-label">Vlhkost</span>
+                                <span class="meteo-value">${meteo.humidity}%</span>
+                            </div>
+                            <div class="meteo-row">
+                                <span class="meteo-label">Tlak</span>
+                                <span class="meteo-value">${meteo.pressure} hPa</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            document.getElementById('imageDisplay').innerHTML = `
+                <img 
+                    id="mainImage"
+                    src="${imgSrc}" 
+                    alt="${img.filename}" 
+                    onload="this.style.opacity=1" 
+                    onerror="this.src='${img.thumbnailUrl}'"
+                    style="opacity:1; width: ${imageZoomLevel}%; height: auto; cursor: zoom-in;">
+                <div class="image-info">
+                    <div><strong>${img.fullDateTime}</strong></div>
+                    <div>${img.filename}</div>
+                </div>
+                ${meteoWidget}
+            `;
+            
+            document.getElementById('counter').textContent = `${index + 1} / ${filteredImages.length}`;
+            renderTimeline();
+        }
+
+        function togglePlay() {
+            if (filteredImages.length === 0) return;
+            
+            isPlaying = !isPlaying;
+            const playBtn = document.getElementById('playBtn');
+            playBtn.textContent = isPlaying ? '⏸' : '▶';
+            
+            if (isPlaying) {
+                playInterval = setInterval(() => {
+                    const nextIndex = (selectedImageIndex + 1) % filteredImages.length;
+                    selectImage(nextIndex);
+                }, speed);
+            } else {
+                if (playInterval) clearInterval(playInterval);
+            }
+        }
+
+        async function loadAllCamerasData() {
+            for (let i = 0; i < cameras.length; i++) {
+                if (!allCameraData[i] || allCameraData[i].length === 0) {
+                    try {
+                        const folderId = cameras[i].folderId;
+                        const url = `https://www.googleapis.com/drive/v3/files?q='${folderId}'+in+parents&key=${API_KEY}&fields=files(id,name,mimeType)&pageSize=1000`;
+                        
+                        const response = await fetch(url);
+                        const data = await response.json();
+                        
+                        if (data.files) {
+                            const processedImages = data.files
+                                .filter(file => file.name.match(/^IMG_\d{8}-\d{6}\.jpg$/i))
+                                .map(file => {
+                                    const match = file.name.match(/IMG_(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})(\d{2})/i);
+                                    if (!match) return null;
+                                    return {
+                                        id: file.id,
+                                        filename: file.name,
+                                        date: match[1] + match[2] + match[3],
+                                        month: match[1] + match[2],
+                                        year: match[1],
+                                        time: match[4] + ':' + match[5] + ':' + match[6],
+                                        url: `https://lh3.googleusercontent.com/d/${file.id}=w1000`,
+                                        displayDate: `${match[3]}.${match[2]}.${match[1]}`,
+                                        fullDateTime: `${match[3]}.${match[2]}.${match[1]} ${match[4]}:${match[5]}:${match[6]}`,
+                                        weekday: new Date(match[1], match[2] - 1, match[3]).getDay()
+                                    };
+                                })
+                                .filter(img => img !== null);
+                            
+                            allCameraData[i] = processedImages;
+                            console.log(`Načteno ${processedImages.length} snímků z kamery ${i + 1}`);
+                        }
+                    } catch (error) {
+                        console.error(`Chyba při načítání dat pro kameru ${i + 1}:`, error);
+                    }
+                }
+            }
+        }
+
+        async function renderMultiview() {
+            await loadAllCamerasData();
+            
+            const allDates = new Set();
+            Object.values(allCameraData).forEach(images => {
+                if (images) {
+                    images.forEach(img => allDates.add(img.displayDate));
+                }
+            });
+            
+            const sortedDates = Array.from(allDates).sort((a, b) => {
+                const dateA = a.split('.').reverse().join('');
+                const dateB = b.split('.').reverse().join('');
+                return dateB.localeCompare(dateA);
+            });
+            
+            const listEl = document.getElementById('imageList');
+            listEl.innerHTML = '';
+            
+            sortedDates.forEach(date => {
+                const btn = document.createElement('button');
+                btn.className = 'date-item';
+                btn.textContent = date;
+                btn.onclick = () => {
+                    selectedDate = date;
+                    document.querySelectorAll('.date-item').forEach(el => el.classList.remove('active'));
+                    btn.classList.add('active');
+                    updateMultiviewForDate(date);
+                };
+                listEl.appendChild(btn);
+            });
+            
+            if (sortedDates.length > 0) {
+                selectedDate = sortedDates[0];
+                listEl.firstChild.classList.add('active');
+                updateMultiviewForDate(selectedDate);
+            }
+        }
+
+        function updateMultiviewForDate(date) {
+            for (let i = 0; i < 3; i++) {
+                const panel = document.getElementById(`multi${i}`);
+                const cameraImages = allCameraData[i] || [];
+                
+                const imagesForDate = cameraImages.filter(img => img.displayDate === date);
+                
+                if (imagesForDate.length > 0) {
+                    const img = imagesForDate[Math.floor(imagesForDate.length / 2)];
+                    panel.innerHTML = `
+                        <div class="multiview-label">${cameras[i].name}</div>
+                        <img src="${img.url}" alt="${img.filename}" style="opacity:1;">
+                        <div class="multiview-time">${img.fullDateTime}</div>
+                    `;
+                } else {
+                    panel.innerHTML = `
+                        <div class="multiview-label">${cameras[i].name}</div>
+                        <div class="multiview-placeholder">Žádný snímek</div>
+                    `;
+                }
+            }
+            
+            const panel3 = document.getElementById('multi3');
+            const cameraImages = allCameraData[0] || [];
+            const imagesForDate = cameraImages.filter(img => img.displayDate === date);
+            
+            if (imagesForDate.length > 0) {
+                const img = imagesForDate[Math.floor(imagesForDate.length / 2)];
+                const meteo = getMeteoForDateTime(img.displayDate, img.time);
+                
+                if (meteo) {
+                    panel3.innerHTML = `
+                        <div class="multiview-label">Meteo</div>
+                        <div class="multiview-meteo">
+                            <h3>🌡️ ${date}</h3>
+                            <div class="multiview-meteo-grid">
+                                <div class="multiview-meteo-item">
+                                    <div class="multiview-meteo-label">Teplota ${meteo.time}</div>
+                                    <div class="multiview-meteo-value">${meteo.temp}°C</div>
+                                </div>
+                                <div class="multiview-meteo-item">
+                                    <div class="multiview-meteo-label">Min / Max</div>
+                                    <div class="multiview-meteo-value" style="font-size: 14px;">${meteo.tempMin}° / ${meteo.tempMax}°C</div>
+                                </div>
+                                <div class="multiview-meteo-item">
+                                    <div class="multiview-meteo-label">Vlhkost</div>
+                                    <div class="multiview-meteo-value">${meteo.humidity}%</div>
+                                </div>
+                                <div class="multiview-meteo-item">
+                                    <div class="multiview-meteo-label">Tlak</div>
+                                    <div class="multiview-meteo-value" style="font-size: 14px;">${meteo.pressure} hPa</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    panel3.innerHTML = `
+                        <div class="multiview-label">Meteo</div>
+                        <div class="multiview-placeholder">Žádná meteo data</div>
+                    `;
+                }
+            } else {
+                panel3.innerHTML = `
+                    <div class="multiview-label">Meteo</div>
+                    <div class="multiview-placeholder">Žádná data</div>
+                `;
+            }
+        }
+
+        function renderHeatmap(year) {
+            const allImagesFlat = Object.values(allCameraData).flat().filter(img => img !== null && img !== undefined);
+            const yearImages = allImagesFlat.filter(img => img && img.year === year);
+            
+            const heatmapData = {};
+            const monthNames = ['Led', 'Úno', 'Bře', 'Dub', 'Kvě', 'Čer', 'Čvc', 'Srp', 'Zář', 'Říj', 'Lis', 'Pro'];
+            
+            for (let month = 1; month <= 12; month++) {
+                heatmapData[month] = {};
+                for (let day = 1; day <= 31; day++) {
+                    heatmapData[month][day] = {};
+                }
+            }
+            
+            yearImages.forEach(img => {
+                if (img && img.date) {
+                    const month = parseInt(img.date.substring(4, 6));
+                    const day = parseInt(img.date.substring(6, 8));
+                    if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+                        const key = img.id;
+                        if (!heatmapData[month][day][key]) {
+                            heatmapData[month][day][key] = true;
+                        }
+                    }
+                }
+            });
+            
+            const table = document.getElementById('heatmapTable');
+            table.innerHTML = '';
+            
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            const emptyCell = document.createElement('th');
+            emptyCell.textContent = 'Měsíc';
+            headerRow.appendChild(emptyCell);
+            
+            for (let day = 1; day <= 31; day++) {
+                const th = document.createElement('th');
+                th.textContent = day;
+                headerRow.appendChild(th);
+            }
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            
+            const tbody = document.createElement('tbody');
+            
+            for (let month = 1; month <= 12; month++) {
+                const row = document.createElement('tr');
+                
+                const monthCell = document.createElement('th');
+                monthCell.textContent = monthNames[month - 1];
+                row.appendChild(monthCell);
+                
+                const daysInMonth = new Date(parseInt(year), month, 0).getDate();
+                
+                for (let day = 1; day <= 31; day++) {
+                    const cell = document.createElement('td');
+                    
+                    if (day <= daysInMonth) {
+                        const count = Object.keys(heatmapData[month][day]).length;
+                        const cellDiv = document.createElement('div');
+                        cellDiv.className = 'heatmap-cell';
+                        
+                        if (count === 0) {
+                            cellDiv.classList.add('heatmap-cell-empty');
+                            cellDiv.style.background = '#374151';
+                        } else if (count === 1) {
+                            cellDiv.style.background = '#1e3a8a';
+                            cellDiv.style.color = '#fff';
+                            cellDiv.textContent = count;
+                        } else if (count === 2) {
+                            cellDiv.style.background = '#3b82f6';
+                            cellDiv.style.color = '#fff';
+                            cellDiv.textContent = count;
+                        } else if (count === 3) {
+                            cellDiv.style.background = '#60a5fa';
+                            cellDiv.style.color = '#fff';
+                            cellDiv.textContent = count;
+                        } else {
+                            cellDiv.style.background = '#f59e0b';
+                            cellDiv.style.color = '#fff';
+                            cellDiv.textContent = count;
+                        }
+                        
+                        cellDiv.title = `${day}. ${monthNames[month - 1]} ${year}: ${count} snímků`;
+                        cell.appendChild(cellDiv);
+                    } else {
+                        cell.style.background = 'transparent';
+                    }
+                    
+                    row.appendChild(cell);
+                }
+                
+                tbody.appendChild(row);
+            }
+            
+            table.appendChild(tbody);
+        }
+
+        async function renderStatistics() {
+            await loadAllCamerasData();
+            
+            const allImagesFlat = Object.values(allCameraData).flat().filter(img => img !== null && img !== undefined);
+            
+            console.log('All camera data loaded:', allCameraData);
+            console.log('Camera 0 images:', allCameraData[0]?.length);
+            console.log('Camera 1 images:', allCameraData[1]?.length);
+            console.log('Camera 2 images:', allCameraData[2]?.length);
+            
+            document.getElementById('totalCount').textContent = allImagesFlat.length;
+            document.getElementById('filteredCount').textContent = filteredImages.length;
+            
+            if (allImagesFlat.length > 0) {
+                const sorted = allImagesFlat.sort((a, b) => a.date.localeCompare(b.date));
+                document.getElementById('firstImage').textContent = sorted[0].displayDate;
+                document.getElementById('lastImage').textContent = sorted[sorted.length - 1].displayDate;
+            }
+            
+            const monthlyData = {};
+            allImagesFlat.forEach(img => {
+                if (img && img.month) {
+                    monthlyData[img.month] = (monthlyData[img.month] || 0) + 1;
+                }
+            });
+            
+            const months = Object.keys(monthlyData).sort();
+            const monthLabels = months.map(m => m.replace(/(\d{4})(\d{2})/, '$2/$1'));
+            const monthCounts = months.map(m => monthlyData[m]);
+            
+            if (monthlyChart) monthlyChart.destroy();
+            monthlyChart = new Chart(document.getElementById('monthlyChart'), {
+                type: 'bar',
+                data: {
+                    labels: monthLabels,
+                    datasets: [{
+                        label: 'Počet snímků',
+                        data: monthCounts,
+                        backgroundColor: '#3b82f6'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true,
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        },
+                        x: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        }
+                    }
+                }
+            });
+            
+            const weekdayData = [0, 0, 0, 0, 0, 0, 0];
+            const weekdayNames = ['Neděle', 'Pondělí', 'Úterý', 'Středa', 'Čtvrtek', 'Pátek', 'Sobota'];
+            
+            allImagesFlat.forEach(img => {
+                if (img && img.weekday !== undefined) {
+                    weekdayData[img.weekday]++;
+                }
+            });
+            
+            if (weekdayChart) weekdayChart.destroy();
+            weekdayChart = new Chart(document.getElementById('weekdayChart'), {
+                type: 'bar',
+                data: {
+                    labels: weekdayNames,
+                    datasets: [{
+                        label: 'Počet snímků',
+                        data: weekdayData,
+                        backgroundColor: '#10b981'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true,
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        },
+                        x: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        }
+                    }
+                }
+            });
+            
+            const cameraCounts = cameras.map((_, idx) => (allCameraData[idx] || []).length);
+            const cameraLabels = cameras.map(c => c.name);
+            
+            if (cameraChart) cameraChart.destroy();
+            cameraChart = new Chart(document.getElementById('cameraChart'), {
+                type: 'pie',
+                data: {
+                    labels: cameraLabels,
+                    datasets: [{
+                        data: cameraCounts,
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'],
+                        borderColor: '#1f2937',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#9ca3af', padding: 20, font: { size: 14 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const label = context.label || '';
+                                    const value = context.parsed || 0;
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                    return `${label}: ${value} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            const hourlyData = new Array(24).fill(0);
+            allImagesFlat.forEach(img => {
+                if (img && img.time) {
+                    const hour = parseInt(img.time.split(':')[0]);
+                    if (hour >= 0 && hour < 24) {
+                        hourlyData[hour]++;
+                    }
+                }
+            });
+            
+            if (hourlyChart) hourlyChart.destroy();
+            hourlyChart = new Chart(document.getElementById('hourlyChart'), {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 24}, (_, i) => i + ':00'),
+                    datasets: [{
+                        label: 'Počet snímků',
+                        data: hourlyData,
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true,
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        },
+                        x: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        }
+                    }
+                }
+            });
+            
+            const cameraWeekdayData = cameras.map(() => new Array(7).fill(0));
+            cameras.forEach((_, camIdx) => {
+                const camImages = allCameraData[camIdx] || [];
+                camImages.forEach(img => {
+                    if (img && img.weekday !== undefined) {
+                        cameraWeekdayData[camIdx][img.weekday]++;
+                    }
+                });
+            });
+            
+            console.log('Camera weekday data:', cameraWeekdayData);
+            
+            if (cameraWeekdayChart) cameraWeekdayChart.destroy();
+            cameraWeekdayChart = new Chart(document.getElementById('cameraWeekdayChart'), {
+                type: 'bar',
+                data: {
+                    labels: weekdayNames,
+                    datasets: cameras.map((cam, idx) => ({
+                        label: cam.name,
+                        data: cameraWeekdayData[idx],
+                        backgroundColor: ['#3b82f6', '#10b981', '#f59e0b'][idx],
+                        borderColor: ['#3b82f6', '#10b981', '#f59e0b'][idx],
+                        borderWidth: 1
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { color: '#9ca3af', padding: 12, font: { size: 12 } }
+                        }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true,
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        },
+                        x: {
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        }
+                    }
+                }
+            });
+            
+            const trendData = {};
+            allImagesFlat.forEach(img => {
+                if (img && img.month) {
+                    trendData[img.month] = (trendData[img.month] || 0) + 1;
+                }
+            });
+            
+            const trendMonths = Object.keys(trendData).sort();
+            const trendLabels = trendMonths.map(m => m.replace(/(\d{4})(\d{2})/, '$2/$1'));
+            const trendCounts = trendMonths.map(m => trendData[m]);
+            
+            if (trendChart) trendChart.destroy();
+            trendChart = new Chart(document.getElementById('trendChart'), {
+                type: 'line',
+                data: {
+                    labels: trendLabels,
+                    datasets: [{
+                        label: 'Počet snímků',
+                        data: trendCounts,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        fill: true,
+                        tension: 0.3,
+                        pointRadius: 3,
+                        pointHoverRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: { 
+                            beginAtZero: true,
+                            ticks: { color: '#9ca3af' },
+                            grid: { color: '#374151' }
+                        },
+                        x: {
+                            ticks: { color: '#9ca3af', maxRotation: 45, minRotation: 45 },
+                            grid: { color: '#374151' }
+                        }
+                    }
+                }
+            });
+            
+            const years = new Set();
+            allImagesFlat.forEach(img => {
+                if (img && img.year) {
+                    years.add(img.year);
+                }
+            });
+            
+            const yearSelect = document.getElementById('heatmapYearSelect');
+            yearSelect.innerHTML = '';
+            
+            const sortedYears = Array.from(years).sort((a, b) => b.localeCompare(a));
+            sortedYears.forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearSelect.appendChild(option);
+            });
+            
+            if (sortedYears.length > 0) {
+                renderHeatmap(sortedYears[0]);
+            }
+        }
+
+        document.querySelectorAll('.tab').forEach((tab, idx) => {
+            tab.addEventListener('click', () => {
+                const view = tab.getAttribute('data-view');
+                
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                if (view === 'stats') {
+                    currentView = 'stats';
+                    document.getElementById('viewerContainer').style.display = 'none';
+                    document.getElementById('multiviewContainer').style.display = 'none';
+                    document.getElementById('statsContainer').style.display = 'block';
+                    document.querySelector('.sidebar').style.display = 'none';
+                    renderStatistics();
+                } else if (view === 'multiview') {
+                    currentView = 'multiview';
+                    document.getElementById('viewerContainer').style.display = 'none';
+                    document.getElementById('statsContainer').style.display = 'none';
+                    document.getElementById('multiviewContainer').style.display = 'grid';
+                    document.querySelector('.sidebar').style.display = 'block';
+                    document.getElementById('sidebarTitle').innerHTML = 'Dny se snímky';
+                    renderMultiview();
+                } else {
+                    currentView = 'camera';
+                    document.getElementById('viewerContainer').style.display = 'flex';
+                    document.getElementById('statsContainer').style.display = 'none';
+                    document.getElementById('multiviewContainer').style.display = 'none';
+                    document.querySelector('.sidebar').style.display = 'block';
+                    document.getElementById('sidebarTitle').innerHTML = 'Snímky (<span id="imageCount">' + filteredImages.length + '</span>)';
+                    activeCamera = idx;
+                    if (isPlaying) togglePlay();
+                    loadImagesFromDrive();
+                }
+            });
+        });
+
+        document.getElementById('dateFrom').addEventListener('change', () => {
+            applyFilters();
+            renderImageList();
+            renderTimeline();
+            if (filteredImages.length > 0) selectImage(0);
+        });
+
+        document.getElementById('dateTo').addEventListener('change', () => {
+            applyFilters();
+            renderImageList();
+            renderTimeline();
+            if (filteredImages.length > 0) selectImage(0);
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            applyFilters();
+            renderImageList();
+            renderTimeline();
+            if (filteredImages.length > 0) selectImage(0);
+        });
+
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            if (currentView === 'camera') {
+                imageCache = {};
+                loadImagesFromDrive();
+            } else if (currentView === 'multiview') {
+                allCameraData = {};
+                renderMultiview();
+            } else if (currentView === 'stats') {
+                allCameraData = {};
+                renderStatistics();
+            }
+        });
+
+        document.getElementById('playBtn').addEventListener('click', togglePlay);
+
+        document.getElementById('speedSelect').addEventListener('change', (e) => {
+            speed = parseInt(e.target.value);
+            if (isPlaying) {
+                togglePlay();
+                togglePlay();
+            }
+        });
+
+        document.getElementById('zoomSelect').addEventListener('change', (e) => {
+            imageZoomLevel = parseInt(e.target.value);
+            if (selectedImageIndex !== null) {
+                selectImage(selectedImageIndex);
+            }
+        });
+
+        const imageContainer = document.querySelector('.image-container');
+        imageContainer.addEventListener('wheel', (e) => {
+            if (currentView !== 'camera') return;
+            
+            const mainImage = document.getElementById('mainImage');
+            if (!mainImage) return;
+            
+            e.preventDefault();
+            
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            imageZoomLevel = Math.max(25, Math.min(400, imageZoomLevel * delta));
+            
+            document.getElementById('zoomSelect').value = Math.round(imageZoomLevel / 25) * 25;
+            mainImage.style.width = imageZoomLevel + '%';
+        });
+
+        document.getElementById('meteoCheckbox').addEventListener('change', (e) => {
+            showMeteo = e.target.checked;
+            if (selectedImageIndex !== null && currentView === 'camera') {
+                selectImage(selectedImageIndex);
+            }
+        });
+
+        document.getElementById('prevBtn').addEventListener('click', () => {
+            if (filteredImages.length > 0) {
+                const prevIndex = (selectedImageIndex - 1 + filteredImages.length) % filteredImages.length;
+                selectImage(prevIndex);
+            }
+        });
+
+        document.getElementById('nextBtn').addEventListener('click', () => {
+            if (filteredImages.length > 0) {
+                const nextIndex = (selectedImageIndex + 1) % filteredImages.length;
+                selectImage(nextIndex);
+            }
+        });
+
+        document.getElementById('zoomInBtn').addEventListener('click', () => {
+            timelineZoom = Math.min(20, timelineZoom * 1.5);
+            renderTimeline();
+        });
+
+        document.getElementById('zoomOutBtn').addEventListener('click', () => {
+            timelineZoom = Math.max(1, timelineZoom / 1.5);
+            if (timelineZoom === 1) timelineScroll = 0;
+            renderTimeline();
+        });
+
+        const scrollBar = document.getElementById('scrollBar');
+        const scrollThumb = document.getElementById('scrollThumb');
+        let isDraggingThumb = false;
+        let dragStartX = 0;
+        let dragStartScroll = 0;
+
+        scrollThumb.addEventListener('mousedown', (e) => {
+            isDraggingThumb = true;
+            dragStartX = e.clientX;
+            dragStartScroll = timelineScroll;
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (!isDraggingThumb) return;
+            
+            const scrollBarWidth = scrollBar.offsetWidth;
+            const thumbWidth = (1 / timelineZoom) * scrollBarWidth;
+            const maxScroll = scrollBarWidth - thumbWidth;
+            const deltaX = e.clientX - dragStartX;
+            const deltaScroll = deltaX / maxScroll;
+            
+            timelineScroll = Math.max(0, Math.min(1, dragStartScroll + deltaScroll));
+            renderTimeline();
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDraggingThumb = false;
+        });
+
+        scrollBar.addEventListener('click', (e) => {
+            if (e.target === scrollThumb) return;
+            
+            const scrollBarWidth = scrollBar.offsetWidth;
+            const thumbWidth = (1 / timelineZoom) * scrollBarWidth;
+            const maxScroll = scrollBarWidth - thumbWidth;
+            const clickX = e.offsetX;
+            
+            timelineScroll = Math.max(0, Math.min(1, (clickX - thumbWidth / 2) / maxScroll));
+            renderTimeline();
+        });
+
+        const timelineContainer = document.querySelector('.timeline-container');
+        timelineContainer.addEventListener('wheel', (e) => {
+            if (currentView !== 'camera') return;
+            
+            e.preventDefault();
+            
+            const delta = e.deltaY > 0 ? 0.9 : 1.1;
+            const newZoom = Math.max(1, Math.min(20, timelineZoom * delta));
+            
+            if (newZoom !== timelineZoom) {
+                timelineZoom = newZoom;
+                
+                if (timelineZoom > 1) {
+                    const mouseX = e.offsetX / timelineContainer.offsetWidth;
+                    timelineScroll = Math.max(0, Math.min(1, mouseX));
+                } else {
+                    timelineScroll = 0;
+                }
+                
+                renderTimeline();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (currentView !== 'camera') return;
+            
+            if (e.key === 'ArrowLeft') {
+                document.getElementById('prevBtn').click();
+            } else if (e.key === 'ArrowRight') {
+                document.getElementById('nextBtn').click();
+            } else if (e.key === ' ') {
+                e.preventDefault();
+                togglePlay();
+            }
+        });
+
+        document.getElementById('heatmapYearSelect').addEventListener('change', (e) => {
+            renderHeatmap(e.target.value);
+        });
+
+        loadMeteoData();
+        loadImagesFromDrive();
+    </script>
+</body>
+</html>    <div class="heatmap-legend-box" style="background: #374151;"></div>
+                                    <span>0</span>
+                                </div>
+                                <div class="heatmap-legend-item">
